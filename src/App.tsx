@@ -457,6 +457,16 @@ function App() {
                 event.preventDefault()
                 return
             }
+            if (event.key.toLocaleLowerCase() === "escape" && (!!getMovableNode() || !!getSelectedNode())) {
+                event.preventDefault()
+                if (getMovableNode()) {
+                    setMovableNode(null)
+                    return
+                }
+                setMovableNode(null)
+                setSelectedNode(null)
+                return;
+            }
             const splitKey: Record<string, Dir> = {
                 j: 'd',
                 h: 'l',
