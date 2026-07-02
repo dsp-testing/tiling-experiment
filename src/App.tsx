@@ -54,9 +54,7 @@ function animateBoxes(
     initialiSizes: Map<string, DOMRect>,
     finalSizes: Map<string, DOMRect>,
     dir: Dir,
-    flipOrigin?: boolean,
 ) {
-    flipOrigin ??= false
     refs.forEach((ref, key) => {
         const firstRect = initialiSizes.get(key)
         const lastRect = finalSizes.get(key)
@@ -329,6 +327,13 @@ function App() {
                 deletableNodeRef.style.visibility = 'hidden'
                 document.body.appendChild(clone)
                 const finalScale = parentDir == "h" ? 'scale(0, 1)' : 'scale(1, 0)'
+                const isFirstChild = node.parent?.children.indexOf(node) === 0
+                const isLastChild = node.parent && node.parent?.children.indexOf(node) === (node.parent?.children.length) - 1
+                if (isFirstChild) {
+                    clone.style.transformOrigin = "top left"
+                } else if (isLastChild) {
+                    clone.style.transformOrigin = "bottom right"
+                }
                 clone.animate([
                     { transform: `scale(1, 1)` },
                     { transform: finalScale }
@@ -347,7 +352,7 @@ function App() {
 
                     requestAnimationFrame(() => {
                         const finalSizes = getBoxSizes(boxRefs)
-                        animateBoxes(boxRefs, initialSizes, finalSizes, parentDir === "h" ? "u" : "l", true)
+                        animateBoxes(boxRefs, initialSizes, finalSizes, parentDir === "h" ? "u" : "l")
                     })
                     setTimeout(() => {
                         setSelectedNode(traversedNode)
