@@ -155,9 +155,9 @@ function Node(props: { node: NodeData }) {
         const isMovable = movableNode() === props.node
         const borderSize = isSelected || isMovable ? 3 : 1
 
-        const background = isSelected ? 'lightsalmon' : ''
+        const background = isMovable ? 'lightblue' : isSelected ? 'lightsalmon' : ''
         const borderColor = isMovable ? 'blue' : isSelected ? 'black' : 'orange'
-        return `display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; outline: ${borderSize}px solid ${borderColor}; background-color: ${background}; border-radius: 5px;`
+        return `display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border: ${borderSize}px solid ${borderColor}; background-color: ${background}; border-radius: 5px;`
     }
 
     return (
