@@ -14,6 +14,8 @@ type Children = ParentNodeData | NodeData
 
 type Dir = 'u' | 'd' | 'r' | 'l'
 
+const ANIMATION_TIME = 250
+
 interface ParentNodeData {
     type: 'parent'
     id: string
@@ -137,7 +139,7 @@ function animateBoxes(
         ref.animate(
             keyFrames,
             {
-                duration: 250,
+                duration: ANIMATION_TIME,
                 easing: 'ease-out',
             },
         )
@@ -302,7 +304,6 @@ function App() {
                 setMovableNode(null)
             }
             setTile(rerender)
-            setSelectedNode(traversedNode)
             boxRefs.delete(node.id)
         }
 
@@ -333,7 +334,7 @@ function App() {
                     { transform: finalScale }
                 ],
                     {
-                        duration: 250,
+                        duration: ANIMATION_TIME / 2,
                         easing: 'ease-out',
                         fill: 'forwards'
                     })
@@ -348,10 +349,14 @@ function App() {
                         const finalSizes = getBoxSizes(boxRefs)
                         animateBoxes(boxRefs, initialSizes, finalSizes, parentDir === "h" ? "u" : "l", true)
                     })
-                }, 250 * 0.75)
+                    setTimeout(() => {
+                        setSelectedNode(traversedNode)
+                    }, ANIMATION_TIME * 0.8)
+                }, ANIMATION_TIME * 0.1)
             }
         } else {
             deleteNode()
+            setSelectedNode(traversedNode)
         }
     }
 
