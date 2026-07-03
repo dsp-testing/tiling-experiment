@@ -14,7 +14,7 @@ type Children = ParentNodeData | NodeData
 
 type Dir = 'u' | 'd' | 'r' | 'l'
 
-const ANIMATION_TIME = 250
+const ANIMATION_TIME = 250 
 
 interface ParentNodeData {
     type: 'parent'
@@ -114,7 +114,7 @@ function animateBoxes(
             if (["u", "d"].includes(dir)) {
                 dx = 0
                 sx = 1;
-                dy = lastRect.height / 2
+                dy = lastRect.height / 4
                 sy = 0
                 if (dir === "u") {
                     dy *= -1
@@ -122,7 +122,7 @@ function animateBoxes(
             } else {
                 dy = 0
                 sy = 1;
-                dx = lastRect.width / 2
+                dx = lastRect.width / 4
                 sx = 0
                 if (dir === "l") {
                     dx *= -1
