@@ -14,7 +14,7 @@ type Children = ParentNodeData | NodeData
 
 type Dir = 'u' | 'd' | 'r' | 'l'
 
-const ANIMATION_TIME = 250 
+const ANIMATION_TIME = 250
 
 interface ParentNodeData {
     type: 'parent'
@@ -29,6 +29,9 @@ interface NodeData {
     name: string
     parent: ParentNodeData | null
 }
+
+function isDirectionHorizontal(dir: Dir) { return (['r', 'l'].includes(dir)) }
+function isDirectionVertical(dir: Dir) { return (['d', 'u'].includes(dir)) }
 
 const Ctx = createContext<{
     selectedNode: Signal<NodeData | null>
@@ -69,7 +72,7 @@ function animateBoxes(
                 height: firstRect.height,
             }
             : {
-                top: lastRect!.top, left: lastRect!.left, width: ["l", "r"].includes(dir) ? 0 : lastRect!.width, height: ['u', 'd'].includes(dir) ? 0 : lastRect!.height
+                top: lastRect!.top, left: lastRect!.left, width: isDirectionHorizontal(dir) ? 0 : lastRect!.width, height: ['u', 'd'].includes(dir) ? 0 : lastRect!.height
             }
 
         if (!firstRect) {
@@ -111,7 +114,7 @@ function animateBoxes(
             let dy: number;
             let sx: number;
             let sy: number;
-            if (["u", "d"].includes(dir)) {
+            if (isDirectionVertical(dir)) {
                 dx = 0
                 sx = 1;
                 dy = lastRect.height / 4
@@ -151,11 +154,15 @@ function Node(props: { node: NodeData }) {
     const style = () => {
         const isSelected = selectedNode() === props.node
         const isMovable = movableNode() === props.node
-        const borderSize = isSelected || isMovable ? 3 : 1
+        const emphasized = isSelected || isMovable
 
         const background = isMovable ? 'lightblue' : isSelected ? 'lightsalmon' : ''
         const borderColor = isMovable ? 'blue' : isSelected ? 'black' : 'orange'
-        return `display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border: ${borderSize}px solid ${borderColor}; background-color: ${background}; border-radius: 5px;`
+        // Keep the border a constant 1px so layout never changes; draw the
+        // thicker "selected" ring with an inset box-shadow, which is painted
+        // inside the box and does not affect layout (no shift).
+        const ring = emphasized ? ` box-shadow: inset 0 0 0 3px ${borderColor};` : ''
+        return `display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 100%; border: 1px solid ${borderColor}; background-color: ${background}; border-radius: 5px;${ring}`
     }
 
     return (
@@ -173,6 +180,7 @@ function Node(props: { node: NodeData }) {
 }
 
 function ParentNode(props: { node: ParentNodeData }) {
+    const ctx = useContext(Ctx)
     const style = () => {
         let style = `display: flex; flex-direction: ${props.node.split === 'h' ? 'row' : 'column'}; height: 100%; width: 100%; gap: 5px;`
         return style
@@ -181,6 +189,7 @@ function ParentNode(props: { node: ParentNodeData }) {
         <div
             id={props.node.id}
             style={style()}
+            ref={(ref) => ctx.boxRefs.set(props.node.id, ref)}
         >
             <For each={props.node.children}>
                 {(child) => {
@@ -195,8 +204,38 @@ function ParentNode(props: { node: ParentNodeData }) {
     )
 }
 
-function traverse(tree: NodeData | ParentNodeData | null, dir: Dir): NodeData | null {
-    if (tree == null) return null
+function findClosestRect(el: HTMLDivElement, array: [string, HTMLDivElement][], dir: 'h' | 'v') {
+    const elBoundingClientRect = el.getBoundingClientRect()
+    const closestEl = array.reduce((closestElement, v) => {
+        if (!closestElement) {
+            return closestElement
+        }
+        const rectForClosestElement = closestElement[1].getBoundingClientRect();
+        const rectForNextElement = v[1].getBoundingClientRect()
+        if (dir === "h") {
+            const diffWithCurrentClosest = Math.abs(rectForClosestElement.left - elBoundingClientRect.left)
+            const diffWithNextClosest = Math.abs(rectForNextElement.left - elBoundingClientRect.left)
+
+            if (diffWithCurrentClosest > diffWithNextClosest) {
+                return v
+            }
+        } else if (dir === "v") {
+            const diffWithCurrentClosest = Math.abs(rectForClosestElement.top - elBoundingClientRect.top)
+            const diffWithNextClosest = Math.abs(rectForNextElement.top - elBoundingClientRect.top)
+
+            if (diffWithCurrentClosest > diffWithNextClosest) {
+                return v
+            }
+        }
+
+        return closestElement
+    }, array.at(0))
+    return closestEl
+}
+
+function traverse(originLNode: NodeData | null, dir: Dir, refs: Map<string, HTMLDivElement>, tree?: NodeData | ParentNodeData | null): NodeData | null {
+    if (originLNode == null) return null
+    tree ??= originLNode
     const parent = tree.parent
     if (!parent) return null
     const isSameSplitAsDirection =
@@ -211,15 +250,42 @@ function traverse(tree: NodeData | ParentNodeData | null, dir: Dir): NodeData | 
             if (target.type === 'node') {
                 return target
             } else {
-                let firstChild = target.children.at(0)
-                while (firstChild != null && firstChild.type !== 'node') {
-                    firstChild = firstChild.children.at(0)
+                const children = target.children;
+                const inputRef = refs.get(originLNode.id)
+                if (!inputRef) {
+                    console.error("Weird no ref for input", tree)
+                    return null
                 }
-                return firstChild ?? null
+                const nodes = children.map(c => {
+                    if (c.type === "node") {
+                        const ref = refs.get(c.id)
+                        if (!ref) {
+                            console.error("Weird, no ref", c)
+                            return
+                        }
+                        return [c.id, ref, c] as const
+                    }
+                    let firstChild = c.children.at(0)
+                    while (firstChild != null && firstChild.type !== 'node') {
+                        firstChild = firstChild.children.at(0)
+                    }
+                    if (!firstChild) return
+                    const ref = refs.get(firstChild.id)
+                    if (!ref) {
+                        console.error("Weird, no ref", c)
+                        return
+                    }
+                    return [firstChild.id, ref, firstChild] as const
+                }).filter((v): v is [string, HTMLDivElement, NodeData] => v != null)
+                const closestElement = findClosestRect(inputRef, nodes.map(n => [n[0], n[1]] as const), target.split)
+                if (!closestElement) {
+                    return null
+                }
+                return closestElement != null ? nodes.find(n => n[0] === closestElement[0])?.[2] ?? null : null
             }
         }
     }
-    return traverse(parent, dir)
+    return traverse(originLNode, dir, refs, parent)
 }
 
 function remove(tree: NodeData) {
@@ -293,7 +359,7 @@ function App() {
         let traversedNode: NodeData | null = null
         for (let i = 0; i < dirToTry.length; i++) {
             const dir = dirToTry[i]
-            traversedNode = traverse(node, dir)
+            traversedNode = traverse(node, dir, boxRefs)
             if (traversedNode) break
         }
         const deleteNode = () => {
@@ -498,7 +564,7 @@ function App() {
                 event.preventDefault()
                 const n = getSelectedNode()
 
-                const nextNode = traverse(n, dir)
+                const nextNode = traverse(n, dir, boxRefs)
                 if (nextNode) {
                     setSelectedNode(nextNode)
                 }
