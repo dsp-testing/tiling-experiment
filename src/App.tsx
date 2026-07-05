@@ -13,6 +13,7 @@ import './App.css'
 type Children = ParentNodeData | NodeData
 
 type Dir = 'u' | 'd' | 'r' | 'l'
+type Plane = 'h' | 'v'
 
 const ANIMATION_TIME = 250
 
@@ -20,7 +21,7 @@ interface ParentNodeData {
     type: 'parent'
     id: string
     children: Children[]
-    split: 'h' | 'v'
+    split: Plane
     parent: ParentNodeData | null
 }
 interface NodeData {
@@ -32,6 +33,10 @@ interface NodeData {
 
 function isDirectionHorizontal(dir: Dir) { return (['r', 'l'].includes(dir)) }
 function isDirectionVertical(dir: Dir) { return (['d', 'u'].includes(dir)) }
+function isInSamePlane(dir: Dir, plane: Plane) {
+    return (isDirectionHorizontal(dir) && plane === "h") || (isDirectionVertical(dir) && plane === "v")
+}
+function isNext(dir: Dir) { return ['r', 'd'].includes(dir) }
 
 const Ctx = createContext<{
     selectedNode: Signal<NodeData | null>
@@ -204,14 +209,22 @@ function ParentNode(props: { node: ParentNodeData }) {
     )
 }
 
-function findClosestRect(el: HTMLDivElement, array: [string, HTMLDivElement][], dir: 'h' | 'v') {
+function findClosestRect(el: HTMLDivElement, array: [string, HTMLDivElement][], dir: Plane) {
     const elBoundingClientRect = el.getBoundingClientRect()
+    function doesOverlap(rect: DOMRect) {
+        const doesOverlapHorizontally = (rect.left >= elBoundingClientRect.left && rect.left <= elBoundingClientRect.right) || (elBoundingClientRect.left >= rect.left && elBoundingClientRect.left <= rect.right)
+        const doesOverlapVertically = (rect.top >= elBoundingClientRect.top && rect.top <= elBoundingClientRect.bottom) || (elBoundingClientRect.top >= rect.top && elBoundingClientRect.top <= rect.bottom)
+        return doesOverlapHorizontally || doesOverlapVertically
+    }
     const closestEl = array.reduce((closestElement, v) => {
         if (!closestElement) {
+            return v
+        }
+        const rectForNextElement = v[1].getBoundingClientRect()
+        if (!doesOverlap(rectForNextElement)) {
             return closestElement
         }
         const rectForClosestElement = closestElement[1].getBoundingClientRect();
-        const rectForNextElement = v[1].getBoundingClientRect()
         if (dir === "h") {
             const diffWithCurrentClosest = Math.abs(rectForClosestElement.left - elBoundingClientRect.left)
             const diffWithNextClosest = Math.abs(rectForNextElement.left - elBoundingClientRect.left)
@@ -229,7 +242,7 @@ function findClosestRect(el: HTMLDivElement, array: [string, HTMLDivElement][], 
         }
 
         return closestElement
-    }, array.at(0))
+    }, null as [string, HTMLDivElement] | null)
     return closestEl
 }
 
@@ -238,45 +251,47 @@ function traverse(originLNode: NodeData | null, dir: Dir, refs: Map<string, HTML
     tree ??= originLNode
     const parent = tree.parent
     if (!parent) return null
-    const isSameSplitAsDirection =
-        (['r', 'l'].includes(dir) && parent.split === 'h') ||
-        (['u', 'd'].includes(dir) && parent.split === 'v')
+    const isSameSplitAsDirection = isInSamePlane(dir, parent.split)
     if (isSameSplitAsDirection) {
         const index = parent.children.indexOf(tree)
-        const isNext = ['r', 'd'].includes(dir)
-        const targetIndex = isNext ? index + 1 : index - 1
+        const targetIndex = isNext(dir) ? index + 1 : index - 1
         if (targetIndex >= 0 && targetIndex < parent.children.length) {
             const target = parent.children[targetIndex]
             if (target.type === 'node') {
                 return target
             } else {
-                const children = target.children;
                 const inputRef = refs.get(originLNode.id)
                 if (!inputRef) {
                     console.error("Weird no ref for input", tree)
                     return null
                 }
-                const nodes = children.map(c => {
+                const allNodesInOppositeDirection: NodeData[] = []
+                function accumulateFurthestNodes(c: Children) {
                     if (c.type === "node") {
-                        const ref = refs.get(c.id)
-                        if (!ref) {
-                            console.error("Weird, no ref", c)
-                            return
-                        }
-                        return [c.id, ref, c] as const
-                    }
-                    let firstChild = c.children.at(0)
-                    while (firstChild != null && firstChild.type !== 'node') {
-                        firstChild = firstChild.children.at(0)
-                    }
-                    if (!firstChild) return
-                    const ref = refs.get(firstChild.id)
-                    if (!ref) {
-                        console.error("Weird, no ref", c)
+                        allNodesInOppositeDirection.push(c)
                         return
                     }
-                    return [firstChild.id, ref, firstChild] as const
+                    if (isInSamePlane(dir, c.split)) {
+                        const idxToCheck = isNext(dir) ? 0 : -1
+
+                        const child = c.children.at(idxToCheck);
+                        if (!child) return
+                        accumulateFurthestNodes(child)
+                    } else {
+                        c.children.forEach(accumulateFurthestNodes)
+                    }
+                }
+                accumulateFurthestNodes(target)
+                const nodes = allNodesInOppositeDirection.map(candidateChild => {
+                    const ref = refs.get(candidateChild.id)
+                    if (!ref) {
+                        console.error("Weird, no ref", candidateChild)
+                        return
+                    }
+                    return [candidateChild.id, ref, candidateChild] as const
                 }).filter((v): v is [string, HTMLDivElement, NodeData] => v != null)
+
+
                 const closestElement = findClosestRect(inputRef, nodes.map(n => [n[0], n[1]] as const), target.split)
                 if (!closestElement) {
                     return null
