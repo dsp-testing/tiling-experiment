@@ -146,7 +146,7 @@ function animateBoxes(
             keyFrames,
             {
                 duration: ANIMATION_TIME,
-                easing: 'ease-out',
+                easing: 'ease-in-out',
             },
         )
     })
@@ -185,7 +185,6 @@ function Node(props: { node: NodeData }) {
 }
 
 function ParentNode(props: { node: ParentNodeData }) {
-    const ctx = useContext(Ctx)
     const style = () => {
         let style = `display: flex; flex-direction: ${props.node.split === 'h' ? 'row' : 'column'}; height: 100%; width: 100%; gap: 5px;`
         return style
@@ -194,7 +193,6 @@ function ParentNode(props: { node: ParentNodeData }) {
         <div
             id={props.node.id}
             style={style()}
-            ref={(ref) => ctx.boxRefs.set(props.node.id, ref)}
         >
             <For each={props.node.children}>
                 {(child) => {
@@ -421,7 +419,7 @@ function App() {
                 ],
                     {
                         duration: ANIMATION_TIME / 2,
-                        easing: 'ease-out',
+                        easing: 'ease-in-out',
                         fill: 'forwards'
                     })
                     .finished.then(() => {
