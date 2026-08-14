@@ -1,7 +1,50 @@
+:root {
+  --bg: #ffffff;
+  --text: #213547;
+  --border: #e2e2e2;
+  --accent: #646cff;
+  --accent-bg: #f3f3ff;
+  --accent-border: #747bff;
+  --text-h: #213547;
+  --social-bg: #f6f6f6;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #121212;
+  --text: #e6e6e6;
+  --border: #333333;
+  --accent: #8891ff;
+  --accent-bg: #1e1e2e;
+  --accent-border: #8891ff;
+  --text-h: #f0f0f0;
+  --social-bg: #1e1e1e;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #121212;
+    --text: #e6e6e6;
+    --border: #333333;
+    --accent: #8891ff;
+    --accent-bg: #1e1e2e;
+    --accent-border: #8891ff;
+    --text-h: #f0f0f0;
+    --social-bg: #1e1e1e;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+}
+
 body {
   margin: 0;
   height: 100%;
   width: 100%;
+  background: var(--bg);
+  color: var(--text);
 }
 
 #root {
@@ -15,4 +58,9 @@ body {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }

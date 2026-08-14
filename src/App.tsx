@@ -167,7 +167,7 @@ function Node(props: { node: NodeData }) {
         // thicker "selected" ring with an inset box-shadow, which is painted
         // inside the box and does not affect layout (no shift).
         const ring = emphasized ? ` box-shadow: inset 0 0 0 3px ${borderColor};` : ''
-        return `display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 100%; border: 1px solid ${borderColor}; background-color: ${background}; border-radius: 5px;${ring}`
+        return `display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 100%; border: 1px solid ${borderColor}; background-color: ${background}; color: var(--text); border-radius: 5px;${ring}`
     }
 
     return (
@@ -330,6 +330,24 @@ function App() {
     const [getSelectedNode, setSelectedNode] = createSignal<NodeData | null>(null)
     const [getMovableNode, setMovableNode] = createSignal<NodeData | null>(null)
     const [tileCount, setTileCount] = createSignal(0)
+    const [isDarkMode, setIsDarkMode] = createSignal(
+        typeof localStorage !== 'undefined' && localStorage.getItem('theme') === 'dark',
+    )
+    const toggleDarkMode = () => {
+        const next = !isDarkMode()
+        setIsDarkMode(next)
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('theme', next ? 'dark' : 'light')
+        }
+        if (typeof document !== 'undefined') {
+            document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light')
+        }
+    }
+    onMount(() => {
+        if (typeof document !== 'undefined') {
+            document.documentElement.setAttribute('data-theme', isDarkMode() ? 'dark' : 'light')
+        }
+    })
     const boxRefs = new Map<string, HTMLDivElement>()
 
     const onReset = () => {
@@ -603,10 +621,19 @@ function App() {
             }}
         >
             <div style="display: flex; flex-direction: column; height: 100%; width: 100%;">
-                <div>
-                    h/j/k/l for direction (or arrow keys); Hold shift and then press direction for new tile;
-                    "d" for delete; Space for toggling movable node, then Shift+Direction to move; "r" for
-                    reset
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 8px;">
+                    <span>
+                        h/j/k/l for direction (or arrow keys); Hold shift and then press direction for new
+                        tile; "d" for delete; Space for toggling movable node, then Shift+Direction to move;
+                        "r" for reset
+                    </span>
+                    <button
+                        type="button"
+                        onClick={toggleDarkMode}
+                        style="flex-shrink: 0; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--accent-bg); color: var(--text); cursor: pointer;"
+                    >
+                        {isDarkMode() ? '☀️ Light mode' : '🌙 Dark mode'}
+                    </button>
                 </div>
                 <div style="display: flex; height: 100%; width: 100%;">
                     <Show when={tile()} keyed>
